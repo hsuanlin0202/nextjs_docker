@@ -1,21 +1,24 @@
-FROM node:12
+FROM node:alpine AS builder
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package.json yarn.lock ./
+RUN yarn
+COPY . .
+RUN yarn build
 
-ENV PORT 3000
+FROM node:alpine
+WORKDIR /app
 
-# Create app directory
-RUN mkdir -p /usr/src/app
-WORKDIR /usr/src/app
-
-# Installing dependencies
-COPY package*.json /usr/src/app/
-RUN npm install
-
-# Copying source files
-COPY . /usr/src/app
-
-# Building app
-RUN npm run build
+ENV NODE_ENV production
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nextjs -u 1001
+USER nextjs
 EXPOSE 3000
 
-# Running the app
-CMD "npm" "run" "dev"
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/.next ./.next
+
+# Uncomment this in case you want to disable telemetry.
+# RUN npx next telemetry disable
+
+CMD ["node_modules/.bin/next", "start"]
